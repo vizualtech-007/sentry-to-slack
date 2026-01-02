@@ -1,4 +1,4 @@
-export const config = {
+  export const config = {
     runtime: 'edge',
   }
 
@@ -11,7 +11,7 @@ export const config = {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `${isError ? ":red_circle:" : ""} *${title}*`
+          "text": `${isError ? ":red_circle:" : ""} *${title || 'Unknown Error'}*`
         }
       },
       {
@@ -19,15 +19,15 @@ export const config = {
         "fields": [
           {
             "type": "mrkdwn",
-            "text": `*Environment:*\n${environment}`
+            "text": `*Environment:*\n${environment || 'N/A'}`
           },
           {
             "type": "mrkdwn",
-            "text": `*Level:*\n${level}`
+            "text": `*Level:*\n${level || 'N/A'}`
           },
           {
             "type": "mrkdwn",
-            "text": `*Project:*\n${project}`
+            "text": `*Project:*\n${project || 'N/A'}`
           }
         ]
       },
@@ -36,7 +36,7 @@ export const config = {
         "fields": [
           {
             "type": "mrkdwn",
-            "text": `*User:*\n${email}`
+            "text": `*User:*\n${email || 'N/A'}`
           }
         ]
       },
@@ -47,14 +47,14 @@ export const config = {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `*Message:*\n${formatted}`
+          "text": `*Message:*\n${formatted || 'No message'}`
         }
       },
       {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `*Culprit:*\n${culprit}`
+          "text": `*Culprit:*\n${culprit || 'N/A'}`
         }
       },
       {
@@ -87,19 +87,19 @@ export const config = {
     const body = await req.json();
     console.log('Received payload:', JSON.stringify(body));
 
-    const {
-      project,
-      culprit,
-      event: {
-        level,
-        logentry: { formatted },
-        user: { email },
-        environment,
-        metadata: { title }
-      }
-    } = body;
+    // Handle Sentry Internal Integration webhook format
+    // Payload is nested under data.event
+    const event = body?.data?.event || body?.event || {};
+
+    const level = event.level || 'error';
+    const formatted = event.logentry?.formatted || event.message || 'No message';
+    const email = event.user?.email || 'N/A';
+    const environment = event.environment || event.tags?.find(t => t[0] === 'environment')?.[1] || 'N/A';
+    const title = event.metadata?.title || event.title || 'Unknown Error';
+    const culprit = event.culprit || 'N/A';
+    const project = body?.data?.triggered_rule || event.project || 'Unknown Project';
 
     await sendMessage(process.env.CHANNEL_ID, {level, formatted, environment, email, title, culprit, project});
 
-    return new Response(`Hello from Edge.js!`);
+    return new Response(`OK`);
   }
